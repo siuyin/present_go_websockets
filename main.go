@@ -97,7 +97,12 @@ func main() {
 	// API_E OMIT
 	// TPL_S OMIT
 	http.HandleFunc("/foopage/", func(w http.ResponseWriter, r *http.Request) {
-		t := template.Must(template.ParseFiles("public/app-tpl.html"))
+		fm := template.FuncMap{"year": func() string {
+			return time.Now().Format("1 Jan 2006, 3:04:05PM")
+		}}
+		t := template.Must(template.New("app-tpl.html").Funcs(fm). // HL
+										ParseFiles("public/app-tpl.html", "public/footer.html"))
+
 		err := t.Execute(w, struct{ Title, Body string }{"Foo", r.URL.Path})
 		if err != nil {
 			log.Fatal(err)

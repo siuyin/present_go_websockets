@@ -130,17 +130,18 @@ Notes:
 
 * HTML Templates with go
 main.go:
-.code -numbers main.go /TPL_S/,/TPL_E/
+.code main.go /TPL_S/,/TPL_E/
 
-Line 100: Template is parsed each time handler is called. This is inefficient but very convenient during development. Changes to CSS are "live".
+The templates are parsed each time handler is called. This is inefficient but very convenient during development. Changes to CSS are "live".
 
-For production the template should be parsed once, upstream of the handler and then executed within the handler.
+For production, templates should be parsed once, upstream of the handler then executed within the handler.
 
 * app-tpl.html
-.code -numbers public/app-tpl.html 
+.code public/app-tpl.html 
 
-Line 5: CSS is on the filesystem.
-When templates are parsed in the handler, changes to CSS are picked up without having to restart the server.
+footer.html
+.code public/footer.html
+Note: function *year* is defined in template *app-tpl.html* 's Funcs
 
 
 * Demo 4
