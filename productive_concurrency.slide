@@ -1,0 +1,228 @@
+Writing Concurrent Programs
+robustly and productively with Go and zeromq
+1 Mar 2015
+
+Loh Siu Yin
+Technology Consultant, Beyond Broadcast LLP
+siuyin@beyondbroadcast.com
+
+* Traditional v. Concurrent
+- sequential (executed one after the other) 
+- concurrent (executed at the same time)
+- concurrency -- reflects the way we interact with the real world
+
+* Which languages can be used to write concurrent programs?
+
+* Concurrent languages
+- C with pthreads lib
+- Java with concurrent lib
+- Scala with actors lib
+- Scala with Akka lib
+- Go
+
+Any difference between Go and the other languages?
+
+* Concurrent programs are hard to write
+
+* Why Go for concurrent programs?
+
+- Go does not need an external concurrency library
+- Avoids, locks, semaphore, critical sections...
+- Instead uses goroutines and channels
+
+* Software I use to write concurrent programs:
+- *Go*  -- Go has concurrency baked into the language.
+- *zeromq* -- zeromq is a networking library with multitasking functions.
+
+For more info:
+
+.link http://golang.org golang.org
+.link http://zeromq.org zeromq.org
+
+* Go Hello World program
+.play hello.go 
+
+Why capital P in Println?
+*Println* is not a class (like in java).
+It is a regular function that is exported (visible from outside) the *fmt* package.
+The "fmt" package provides formatting functions like Println and Printf.
+
+* Package naming in Go
+.play hello.go 
+
+If you import "a/b/c/d" instead of import "fmt"  and that package "a/b/c/d" has exported Println.
+That package's Println is called as d.Println and not a.b.c.d.Println.
+
+If you import "abcd", what is the package qualifier name?
+
+* Go Concurrent Hello World
+.play conchello.go
+
+* goroutine lifecylce
+- goroutines are garbage collected when they end. This means the OS reclaims the resources used by a goroutine when it ends.
+- goroutines are killed when *func*main()* ends. The killed goroutines are then garbage collected.
+- goroutines can be run from functions other than main. They are *not* killed if that function exits. They are killed only when *main()* exits.
+
+The GOMAXPROCS variable limits the number of operating system threads that can execute user-level Go code simultaneously. [default = 1]
+
+- At 1 there is no parallel execution,
+- increase to 2 or higher for parallel execution if you have 2 or more cores.
+
+.link http://golang.org/pkg/runtime/ golang.org/pkg/runtime
+
+* Multiple concurrent jobs
+.play mult_job.go /M010 OMIT/,/M020 OMIT/
+
+How long would it take to run 100 jobs?
+
+* Go channels
+Go channels provide a *type-safe* means of communication between:
+
+- the main function and a goroutine, or
+- two goroutines
+
+What is:
+
+- a goroutine?
+- _the_ main function?
+
+
+* func x()
+`func`x()` returns a channel of integers can can only be *read* from.
+Internally it runs a *goroutine* that emits an integer every 500ms.
+
+.play gochan.go /^type MyInt/,/^}/
+_Demo_type_safety._Use_MyInt_for_i_.
+
+* func y()
+`func`y()` returns a channel of integers can can only be *written* to. 
+All it does is run a *goroutine* to *print* out the *integer* it receives.
+
+.play gochan.go /^func y/,/^}/
+
+* Go channels 1
+.play gochan.go /START001 OMIT/,/END001 OMIT/
+_1_of_2_..._
+
+* Go channels 2
+.play gochan.go /END001 OMIT/,/END002 OMIT/
+_2_of_2_
+
+* Synchronizing goroutines
+*n* gets an integer from *xch* and pushes it to *ych* to be displayed.
+
+.play gochan.go /^func main/,/^}/
+
+* Double your Money!
+.play pipeline.go /^func main/,/^}/
+
+The despatcher sends your money to the work process which doubles your money and is then presented back to you.
+
+Change the code to double your money again - put in $3 and get $3 x 2 x 2 = $12 !
+
+* Despatcher
+
+.code pipeline.go /M010/,/M020/
+
+Despatch first makes a channel for your money and then simply shoves your money into the channel.
+
+* Work
+.code pipeline.go /M030/,/M040/
+*work* takes your money from the channel and hands it to Doubler.
+
+.play pipeline.go /M020/,/M030/
+*Doubler* doubles the money and send it back to work's output channel.
+
+* Present
+.play pipeline.go /M040/,/M050/
+*present* pulls money from the *work* output channel and shows you the money.
+If it has waited a while and nothing happens he takes a break by showing a "." .
+
+What if the source of data / money , is on a different machine?
+
+Go *can't* help here. There is no longer a network channel package.
+
+- Rob Pike (one of the Go authors) said that he didn't quite know what he was doing...
+
+* zeromq Networking Patterns
+- *Pub/Sub* Many programs can *pub* to a network endpoint. Many other programs can *sub* from that endpoint. All subscribers get messages from mulitple publishers.
+- *Req/Rep* Many clients can *req* services from a server endpoint which *rep* with replies to the client.
+- *Push/Pull* Many programs can *push* to a network endpoint. Many other programs can *pull* from that endpoint. Messages are round-robin routed to an available *puller*.
+
+* Using zeromq in a Go program
+Import a package that implements zeromq
+
+* zeromq Pusher
+.play pusher.go
+
+* zeromq Puller
+.play puller.go /^func main/,/^}/
+This *puller* may be a data-mover moving gigabytes of data around. It has to be rock-solid with the program running as a daemon (service) and *never* shut down. *Go* fits this description perfectly! Why?
+In addition, Go has a built-in function *defer*  which helps to avoid memory leaks.
+
+* msg, _ := pull.Recv(0)
+- functions in Go can return multiple values.
+- the _ above is usually for an err variable. Eg. msg,err := pull.Recv(0)
+- a *nil* err value means no error
+- if you write msg := pull.Recv(0) [note: no _ or err var], the compiler will *fail* the compile with an error message (not a warning).
+- typing _ forces the programmer to think about *error* handling
+ msg,err := pull.Recv(0)
+ if err != nil {
+   fmt.Println("zmq pull:", err)
+ }
+
+* zeromq Controller/Pusher in ruby
+.play pusher.rb
+The *pusher* may be a controller that is in active development -- requiring frequent code updates and restarts. With zeromq, we can decouple the stable long-running process from the unstable code being developed. What is the advantage of this?
+
+* Putting it all together
+.image wdot/email_mover.png _ 400 
+- email_mover (puller) has two slow tasks: email and move big data.
+
+* email_mover
+.play email_mover.go /M04 OMIT/,/M05 OMIT/
+
+* zmqRecv goroutine
+.play email_mover.go /M01 OMIT/,/M02 OMIT/
+
+* emailer goroutine
+.play email_mover.go /M02 OMIT/,/M03 OMIT/
+
+* mover goroutine
+.play email_mover.go /M03 OMIT/,/M04 OMIT/
+
+* email_mover main()
+Why do we need buffered channels in emailer() and mover() and not for zmqRecv()?
+
+.play email_mover.go /M04 OMIT/,/M05 OMIT/
+
+email_mover is a stable service in *production* written in Go.
+This service should *never* stop, leak memory or lose data.
+
+* Go Pusher (not changed)
+.play pusher.go
+
+* ruby Pusher (not changed)
+.play pusher.rb
+
+* email_mover maintenance
+*email_mover* sends emails and moves files. These are well understood, stable functions. This *service* should *never* be shutdown.
+
+However, hardware needs maintenance. How do we swap-in a new email_mover without losing data?
+
+zeromq to the rescue!
+"ØMQ ensures *atomic* delivery of messages; peers shall receive either all message parts of a message or none at all."
+
+* Maintenance Procedure:
+- *Disconnect* the network cable from the first email_mover host. zeromq messages will not begin to queue up at the pushers. Because zeromq message delivery is *atomic*, no data is lost.
+- *Connect* the network cable to the new email_mover host. zeromq messages begin to flow again.
+
+Job done!
+
+* Why is data not lost?
+*Receive*
+The half-received message / data packet received by the old host was deemed as *not*received* by zeromq and is discarded.
+
+*Send*
+The half-sent message / data packet that was interrupted when the connection was broken was detected by zeromq as *not*delivered* and will be sent again. This time to the new host.
+

@@ -1,0 +1,152 @@
+Using Websockets in Go
+Implementing push with websockets and net/http
+30 Sep 2016
+
+Loh Siu Yin
+Technology Consultant, Beyond Broadcast LLP
+siuyin@beyondbroadcast.com
+
+* Why Websockets?
+- Alternative to polling
+- Maintains an open two-way communication between browser and server
+- Integrates well with browsers
+
+* Client (browser) code
+time.html:
+.code public/time.html /p class="big blue" id="clock"/,/\/p/
+.code public/time.html /script src="js\/time.js"/,/\/script/
+
+js/time.js -- we will install an time server at the backend:
+.code public/js/time.js  /VARS_S/,/VARS_E/
+
+* timeWebSocket()
+js/time.js:
+.code public/js/time.js  /TS_S/,/TS_E/
+.code public/js/time.js  /OM_S/,/OM_E/
+
+1. Recall that *output* is bound to the *clock* id.
+2. Client (time.js) triggers onMessage when server sends msg to client.
+3. Message content is available in event.data.
+
+* Server code
+main.go:
+.code main.go /WS_S/,/WS_E/
+.code -numbers main.go /HND_S/,/HND_E/
+.code -numbers main.go /LAS_S/,/LAS_E/
+
+Lines 67 to 72: *static* filesystem servemux
+Lines 73 to 76: *default* servemux, time ws server at Line 74.
+
+* Websocket server
+.code main.go /TSS_S/,/TSS_E/
+
+Note:
+1. TimeServerSimple accepts a *websocket.Conn* and not the usual
+http.HandleFunc(w http.ResponseWriter, r *http.Request).
+
+2. websocket.Message.Send can send *string* s or *[]byte* s. 
+
+
+* Demo
+
+ cd /home/siuyin/go/src/siuyin/present_go_websockets
+ ./run.sh
+
+ open browser to localhost:8123/time.html
+
+* Accepting and responding with JSON
+index.html:
+.code public/index.html /div class="big blue" id="output"/,/\/div/
+.code public/index.html /div class="red" id="log"/,/\/div/
+.code public/index.html /script src="js\/app.js"/,/\/script/
+We have two output divs which are updated by app.js:
+1. *output* from server
+2. *log* s written to the client screen
+
+* app.js
+.code public/js/app.js /INIT_START/,/INIT_END/
+
+.code public/js/app.js /RWS_S/,/RWS_E/
+Nothing very different here -- only the websocket URL was changed from *time* to *echo* .
+
+* onOpen
+.code public/js/app.js /OP_S/,/OP_E/
+.code public/js/app.js /UTIL_S/,/UTIL_E/
+
+
+Here client sends JSON to server on opening connecting to the websocket server.
+
+* Server
+main.go:
+.code -numbers main.go /HND_S/,/MN_E/
+.code -numbers main.go /ETD_S/,/ETD_E/
+.code -numbers main.go /LAS_S/,/LAS_E/
+
+The /echo path bound to EchoTimeServer.
+
+* EchoTimeServer -- sends time and payload with JSON
+.code -numbers main.go /ETS_S/,/ETS_E/
+Line 50: Receive the JSON message from the client and store it in a MyCmd struct.
+
+Line 40: Declare the MyTime struct which will be JSON encoded and sent back to the client.
+
+* EchoTimeSever (2)
+.code -numbers main.go /ET2_S/,/ET2_E/
+Line 54: Send 5 time updates, then close websocket connection.
+
+Line 56: JSON message from client is assigned to a MyTime.Msg field.
+
+Line 58: websocket has a JSON encoder to Send the tim MyTime struct as JSON.
+
+* Demo 2
+
+ cd /home/siuyin/go/src/siuyin/present_go_websockets
+ ./run.sh
+
+ open browser to localhost:8123
+
+* Bonus Content
+
+* API Server (in the same go binary)
+main.go:
+.code -numbers main.go /API_S/,/API_E/
+Line 91: ParseForm() makes query parameters in both GET and POST/PUT requests available.
+
+Line 95: returns concatenation of parameters _a_ and _b_ as API result.
+
+* Demo 3
+ 1. open browser to: localhost:8123/api/v1/cat?a=brown&b=fox
+
+ 2a. curl 'http://localhost:8123/api/v1/cat?a=curly&b=fries'
+ 2b. curl -d a=post -d b=mark -X POST http://localhost:8123/api/v1/cat
+ 2b. curl -d a=put -d b=there -X PUT  http://localhost:8123/api/v1/cat
+
+Notes:
+2a: The quotes are required to protect the '?' and '&' characters from the shell.
+
+2b, 2c: The -d flag simulates data populated in form fields. -X specifies the request type.
+
+* Bonus Content 2
+
+* HTML Templates with go
+main.go:
+.code -numbers main.go /TPL_S/,/TPL_E/
+
+Line 100: Template is parsed each time handler is called. This is inefficient but very convenient during development. Changes to CSS are "live".
+
+For production the template should be parsed once, upstream of the handler and then executed within the handler.
+
+* app-tpl.html
+.code -numbers public/app-tpl.html 
+
+Line 5: CSS is on the filesystem.
+When templates are parsed in the handler, changes to CSS are picked up without having to restart the server.
+
+
+* Demo 4
+ open browser to: localhost:8123/foopage/a/b
+
+ cd /home/siuyin/go/src/siuyin/present_go_websockets
+ vim  public/app-tpl.html # change blue to red
+
+

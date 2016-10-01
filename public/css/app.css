@@ -1,0 +1,22 @@
+.big {
+  font-size: 250%;
+  text-align: left;
+  margin: 5px 5px 10px 5px;
+  padding: 5px;
+  background-color: LightGrey;
+}
+.footer {
+  margin-top: 10px;
+  font-size: 70%;
+  text-align: center;
+}
+.blue {
+  color: blue;
+  padding: 10px;
+  background-color: MintCream;
+}
+.red {
+  color: red;
+  padding: 10px;
+  background-color: LightGoldenRodYellow;
+}
